@@ -1,0 +1,7 @@
+numpy
+matplotlib
+imageio
+
+# For statistical tests in the assignment (Step 4 of TASK.md):
+scipy
+
