@@ -1,7 +1,5 @@
 # individual.py
 
-import numpy as np
-
 class Individual:
     """
     Klasa opisująca pojedynczego osobnika.

@@ -1,5 +1,53 @@
 # Geometric Fisher Model — Evolutionary Simulation Framework
 
+```markdown
+fgm_project/
+│
+├── src/
+│   ├── core/
+│   │   ├── individual.py
+│   │   ├── population.py
+│   │
+│   ├── strategies/
+│   │   ├── strategies.py
+│   │   ├── mutation/
+│   │   │   └── isotropic_mutation.py
+│   │   │
+│   │   ├── selection/
+│   │   │   └── selection_strategies.py
+│   │   │
+│   │   ├── reproduction/
+│   │   │   ├── asexual_reproduction.py
+│   │   │   └── sexual_reproduction.py
+│   │   │
+│   │   └── environment/
+│   │       ├── linear_environment.py
+│   │       ├── shock_environment.py
+│   │       └── multi_optimum_environment.py
+│   │
+│   ├── simulation/
+│   │   ├── simulation_runner.py
+│   │   └── stats.py
+│   │
+│   └── visualization/
+│       └── plots.py
+│
+├── experiments/
+│   ├── run_baseline.py
+│   ├── run_sexual_vs_asexual.py
+│   ├── run_shock_experiment.py
+│   └── parameter_sweep.py
+│
+├── results/
+│   ├── raw/
+│   ├── processed/
+│   └── figures/
+│
+├── config.py
+├── main.py
+└── README.md
+```
+
 Fisher's Geometric Model (FGM) is one of the most influential theoretical
 frameworks in evolutionary biology. It treats adaptation as a geometric
 problem: a population occupies a cloud of points in an *n*-dimensional
