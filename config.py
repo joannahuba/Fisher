@@ -54,10 +54,18 @@ threshold = 0.01  # próg selekcji progowej
 # --------------------
 # UWAGA: alpha0 i c są wyprowadzane z n.
 # Wystarczy zmienić n powyżej – wektory środowiska dopasują się automatycznie.
-alpha0 = np.zeros(n)       # początkowy optymalny fenotyp
-c      = np.full(n, 0.01)  # kierunkowa zmiana α na pokolenie ("globalne ocieplenie")
-delta  = 0.01              # odchylenie std losowych fluktuacji wokół c
-max_generations = 200      # liczba pokoleń do zasymulowania
+# alpha0 = np.zeros(n)       # początkowy optymalny fenotyp
+# c      = np.full(n, 0.01)  # kierunkowa zmiana α na pokolenie ("globalne ocieplenie")
+# delta  = 0.01              # odchylenie std losowych fluktuacji wokół c
+# max_generations = 200      # liczba pokoleń do zasymulowania
+
+alpha0=np.zeros(n)
+alpha1 = [-0.5,0,0,0]
+alpha2 = [0.5,0,0,0]
+c1=np.full(n,0.01)
+c2=np.full(n,0.01)
+delta=0.005 # było 0
+max_generations=200
 
 # ----------------------
 # PARAMETRY REPRODUKCJI

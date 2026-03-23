@@ -8,18 +8,23 @@ from strategies import SelectionStrategy
 # Funkcje pomocnicze (używane też w stats.py)
 # ---------------------------------------------------------------------------
 
-def fitness_function(phenotype: np.ndarray, alpha: np.ndarray, sigma: float) -> float:
+def fitness_function(phenotype: np.ndarray, alpha, sigma: float) -> float:
     """
     Gaussowska funkcja fitness:
         phi_alpha(p) = exp( -||p - alpha||^2 / (2 * sigma^2) )
+    
+    Obsługa pojedynczego lub wielu optimów(lista alpha)
 
     :param phenotype: fenotyp osobnika
     :param alpha: optymalny fenotyp środowiska
     :param sigma: parametr siły selekcji (większe sigma = słabsza selekcja)
     :return: wartość fitness w przedziale (0, 1]
     """
-    diff = phenotype - alpha
-    return float(np.exp(-np.dot(diff, diff) / (2 * sigma ** 2)))
+    if isinstance(alpha, list): # dwa lub więcej optimum
+        return max(fitness_function(phenotype,a,sigma) for a in alpha)
+    else:
+        diff = phenotype - alpha
+        return float(np.exp(-np.dot(diff, diff) / (2 * sigma ** 2)))
 
 
 def compute_fitnesses(individuals: list, alpha: np.ndarray, sigma: float) -> np.ndarray:

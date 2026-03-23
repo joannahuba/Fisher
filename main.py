@@ -17,10 +17,11 @@ import numpy as np
 
 import config
 from environment import LinearShiftEnvironment
+from environment import DualOptimumEnvironment
 from population import Population
 from mutation import IsotropicMutation
 from selection import TwoStageSelection
-from reproduction import AsexualReproduction
+from reproduction import AsexualReproduction, SexualReproduction
 from visualization import plot_population, plot_frame, plot_stats
 from stats import SimulationStats
 
@@ -135,10 +136,22 @@ def main():
         np.random.seed(config.seed)
 
     # --- Inicjalizacja komponentów ---
+    '''
     env = LinearShiftEnvironment(
         alpha_init=config.alpha0,
         c=config.c,
         delta=config.delta,
+    )
+    '''
+    env = DualOptimumEnvironment(
+        alpha1=config.alpha1,
+        alpha2=config.alpha2,
+        c1=config.c1,
+        c2=config.c2,
+        delta=config.delta,
+        jump_every=20, # co 20 pokoleń mamy skok
+        jump_scale=0.1 # średni skok 0.1 w kazdej cesze
+
     )
     pop = Population(
         size=config.N,
@@ -151,7 +164,11 @@ def main():
         threshold=config.threshold,
         N=config.N,
     )
-    reproduction = AsexualReproduction()
+    
+    #reproduction = AsexualReproduction()
+    reproduction=SexualReproduction(
+        sigma_mutation=0.15 # jak bardzo dziecko róznią się od średniej rodziców
+    )
     mutation = IsotropicMutation(
         mu=config.mu,
         mu_c=config.mu_c,

@@ -39,3 +39,44 @@ class LinearShiftEnvironment(EnvironmentDynamics):
 
 # Alias dla kompatybilności wstecznej
 Environment = LinearShiftEnvironment
+
+class DualOptimumEnvironment(EnvironmentDynamics):
+    def __init__(self, alpha1: np.ndarray, alpha2: np.ndarray, c1: np.ndarray, c2: np.ndarray, 
+                 delta: float=0.0, jump_every: int = 0, jump_scale: float = 0.1):
+        
+        """
+        :param jump_every: co ile pokoleń robimy nagły „skok” optima (0 = brak skoków)
+        :param jump_scale: standardowe odchylenie dla skoku
+        """
+        
+        self.alpha1=np.array(alpha1, dtype=float)
+        self.alpha2=np.array(alpha2,dtype=float)
+        self.c1 = np.array(c1, dtype=float)
+        self.c2 = np.array(c2, dtype=float)
+        self.delta = float(delta)
+        self.jump_every=jump_every
+        self.jump_scale=jump_scale
+        self.generation=0
+    
+    def update(self) -> None:
+        def step(alpha,c):
+            if self.delta > 0:
+                shift=np.random.normal(loc=c,scale=self.delta,size=len(alpha))
+            else:
+                shift=c.copy()
+            return alpha + shift
+        
+        # standardowa zmiana środowiska
+        self.alpha1=step(self.alpha1,self.c1)
+        self.alpha2=step(self.alpha2,self.c2)
+
+        # skokowe zmiany co jump_every pokoleń
+        if self.jump_every > 0 and self.generation % self.jump_every == 0:
+            self.alpha1 += np.random.normal(0, self.jump_scale, size=len(self.alpha1))
+            self.alpha2 += np.random.normal(0, self.jump_scale, size=len(self.alpha2))
+        
+        self.generation +=1 
+    
+    def get_optimal_phenotype(self):
+        return [self.alpha1.copy(), self.alpha2.copy()]
+

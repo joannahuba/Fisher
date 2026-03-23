@@ -6,7 +6,7 @@ import numpy as np
 
 def _draw_phenotype_panel(ax, individuals: list, alpha: np.ndarray,
                           sigma: float, window_size: float,
-                          alpha_history=None, trail_len: int = 15):
+                          alpha_history=None, trail_len: int = 15, fitness_mode: str="max"):
     """
     Pomocnicza funkcja rysująca panel fenotypowy (wymiary 1–2) na podanym Axes:
 
@@ -34,20 +34,45 @@ def _draw_phenotype_panel(ax, individuals: list, alpha: np.ndarray,
     :param alpha_history: lista np.ndarray – historia pozycji α (z SimulationStats)
     :param trail_len:     ile ostatnich pozycji α rysować jako ślad
     :return:              ScalarMappable (do stworzenia colorbar na zewnątrz)
-    """
-    # --- 1. Siatka fitness (2D wycinek) ---
-    res = 160
-    xs = np.linspace(alpha[0] - window_size, alpha[0] + window_size, res)
-    ys = np.linspace(alpha[1] - window_size, alpha[1] + window_size, res)
-    Xg, Yg = np.meshgrid(xs, ys)
-    Z = np.exp(-((Xg - alpha[0])**2 + (Yg - alpha[1])**2) / (2 * sigma**2))
 
-    # --- 2. Aura: wypełnione pola (białe → jasnozielone → ciemnozielone) ---
+    Obsługuje teraz:
+    :param alpha: np.ndarray (jedno optimum) lub lista [np.ndarray] (wiele optimów)
+
+    """
+
+    # --- 0. Przygotowanie optimów ---
+    if isinstance(alpha, list):
+        alpha_list = [a[:2] for a in alpha]
+    else:
+        alpha_list = [alpha[:2]]
+
+    # --- 1. Siatka ---
+    center = np.mean(alpha_list, axis=0)
+    res = 160
+
+    xs = np.linspace(center[0] - window_size, center[0] + window_size, res)
+    ys = np.linspace(center[1] - window_size, center[1] + window_size, res)
+    Xg, Yg = np.meshgrid(xs, ys)
+
+    # --- 2. Fitness landscape (SPÓJNY!) ---
+    gaussians = [
+        np.exp(-((Xg - a[0])**2 + (Yg - a[1])**2) / (2 * sigma**2))
+        for a in alpha_list
+    ]
+
+    if fitness_mode == "max":
+        Z = np.maximum.reduce(gaussians)
+    elif fitness_mode == "sum":
+        Z = np.sum(gaussians, axis=0)
+        Z = np.clip(Z, 0, 1)
+    else:
+        raise ValueError("fitness_mode musi być 'max' albo 'sum'")
+
+    # --- 3. Contourf (TYLKO RAZ!) ---
     fill_levels = [0.0, 0.01, 0.05, 0.20, 0.50, 0.80, 1.001]
     ax.contourf(Xg, Yg, Z, levels=fill_levels, cmap='YlGn',
                 alpha=0.38, zorder=1)
 
-    # --- 3. Izolinii z etykietami φ ---
     line_levels = [0.05, 0.25, 0.50, 0.75]
     cs = ax.contour(Xg, Yg, Z, levels=line_levels,
                     colors='darkgreen', linewidths=0.8,
@@ -55,63 +80,111 @@ def _draw_phenotype_panel(ax, individuals: list, alpha: np.ndarray,
     ax.clabel(cs, fmt={v: f'φ={v:.2f}' for v in line_levels},
               fontsize=7, inline=True)
 
-    # --- 4. Ślad optimum (zanikające poprzednie pozycje α) + strzałka kierunku ---
-    if alpha_history is not None and len(alpha_history) > 1:
-        hist = np.array(alpha_history)                    # (T, n)
-        # ostatnie trail_len pozycji BEZ bieżącej (bieżąca = złota gwiazda)
-        past = hist[-min(trail_len + 1, len(hist)):-1, :2]  # (≤trail_len, 2)
-        T = len(past)
-        if T > 0:
-            fracs = np.linspace(0.08, 0.65, T)           # stara=prawie niewidoczna
-            # łącząca linia (segmenty, żeby można było różnicować przezroczystość)
-            for i in range(T - 1):
-                ax.plot(past[i:i+2, 0], past[i:i+2, 1],
-                        color='white', lw=1.4, alpha=fracs[i + 1], zorder=6)
-            # kropki na każdej poprzedniej pozycji
-            for i in range(T):
-                ax.scatter(past[i, 0], past[i, 1], color='white', s=14,
-                           alpha=fracs[i], edgecolors='#bbbbbb',
-                           linewidths=0.4, zorder=7)
+    # --- 4. Historia + strzałka ---
+    if alpha_history is not None:
+        alpha_histories = (
+            alpha_history if isinstance(alpha_history[0], list)
+            else [alpha_history]
+        )
 
-        # strzałka prognozy: prędkość z ostatnich min(5, T+1) kroków
-        n_v = min(5, len(hist))
-        if n_v >= 2:
-            velocity_2d = (hist[-1, :2] - hist[-n_v, :2]) / (n_v - 1)  # krok/gen
-            speed = np.linalg.norm(velocity_2d)
-            if speed > 1e-10:
-                # długość strzałki = 5 kroków, max 35% window_size
-                n_ahead = min(5.0, 0.35 * window_size / speed)
-                tip = alpha[:2] + velocity_2d * n_ahead
-                ax.annotate('',
-                            xy=(tip[0], tip[1]),
-                            xytext=(alpha[0], alpha[1]),
-                            arrowprops=dict(arrowstyle='->', color='#ffe066',
-                                           lw=2.0, mutation_scale=16),
-                            zorder=11)
+        for hist in alpha_histories:
+            hist = np.array(hist)
+            past = hist[-min(trail_len + 1, len(hist)):-1, :2]
+            T = len(past)
 
-    # --- 5. Chmura osobników – kolor = n-wymiarowe fitness ---
-    phenotypes = np.array([ind.get_phenotype() for ind in individuals])  # (N, n)
+            if T > 0:
+                
+                '''
+                for i in range(T - 1):
+                    ax.plot(past[i:i+2, 0], past[i:i+2, 1],
+                            color='white', lw=1.4,
+                            alpha=fracs[i + 1], zorder=6)
+                '''
+                for i in range(T - 1):
+                    frac = (i + 1) / T
+
+                    ax.plot(
+                        past[i:i+2, 0],
+                        past[i:i+2, 1],
+                        color='#ffe066',
+                        lw=1.0 + 2.0 * frac,
+                        alpha=0.15 + 0.7 * frac,
+                        solid_capstyle='round',
+                        zorder=6
+                    )
+                fracs = np.linspace(0.08, 0.65, T)
+                for i in range(T):
+                    ax.scatter(past[i, 0], past[i, 1],
+                               color='white', s=14,
+                               alpha=fracs[i],
+                               edgecolors='#bbbbbb',
+                               linewidths=0.4, zorder=7)
+
+            '''
+            n_v = min(5, len(hist))
+            if n_v >= 2:
+                v = (hist[-1, :2] - hist[-n_v, :2]) / (n_v - 1)
+                speed = np.linalg.norm(v)
+
+                if speed > 1e-10:
+                    n_ahead = min(5.0, 0.35 * window_size / speed)
+                    tip = hist[-1, :2] + v * n_ahead
+
+                    ax.annotate(
+                        '',
+                        xy=(tip[0], tip[1]),
+                        xytext=(hist[-1, 0], hist[-1, 1]),
+                        arrowprops=dict(
+                            arrowstyle='->',
+                            color='#ffe066',
+                            lw=2.0,
+                            mutation_scale=16
+                        ),
+                        zorder=11
+                    )
+            '''
+
+    # --- 5. Punkty ---
+    phenotypes = np.array([ind.get_phenotype() for ind in individuals])
     x_pts = phenotypes[:, 0]
     y_pts = phenotypes[:, 1]
-    diff = phenotypes - alpha                                             # broadcasting
-    full_fitness = np.exp(-np.einsum('ij,ij->i', diff, diff) / (2 * sigma**2))
+
+    if fitness_mode == "max":
+        full_fitness = np.array([
+            max(np.exp(-np.sum((p[:2] - a)**2) / (2 * sigma**2))
+                for a in alpha_list)
+            for p in phenotypes
+        ])
+    else:
+        full_fitness = np.array([
+            sum(np.exp(-np.sum((p[:2] - a)**2) / (2 * sigma**2))
+                for a in alpha_list)
+            for p in phenotypes
+        ])
+        full_fitness = np.clip(full_fitness, 0, 1)
 
     sc = ax.scatter(x_pts, y_pts, c=full_fitness, cmap='RdYlGn',
                     vmin=0, vmax=1, s=28, alpha=0.88,
                     edgecolors='none', zorder=5)
 
-    # --- 6. Optimum: złota gwiazda ---
-    ax.scatter([alpha[0]], [alpha[1]], color='gold', marker='*',
-               s=380, zorder=10, edgecolors='#b8860b', linewidths=1.2,
-               label='Optimum α')
+    # --- 6. Optima ---
+    for i, a in enumerate(alpha_list):
+        ax.scatter([a[0]], [a[1]],
+                   color='gold', marker='*',
+                   s=380, zorder=10,
+                   edgecolors='#b8860b',
+                   linewidths=1.2,
+                   label=f'Optimum α{i+1}')
 
-    ax.set_xlim(alpha[0] - window_size, alpha[0] + window_size)
-    ax.set_ylim(alpha[1] - window_size, alpha[1] + window_size)
+    # --- 7. Styl ---
+    ax.set_xlim(center[0] - window_size, center[0] + window_size)
+    ax.set_ylim(center[1] - window_size, center[1] + window_size)
     ax.set_xlabel("Cecha 1", fontsize=9)
     ax.set_ylabel("Cecha 2", fontsize=9)
+    ax.legend(loc="upper right", fontsize=8)
     ax.set_facecolor('#f7f7f7')
 
-    return sc  # do colorbar
+    return sc
 
 
 def plot_population(population, alpha: np.ndarray, generation: int,
