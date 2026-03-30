@@ -1,7 +1,7 @@
 # selection.py
 
 import numpy as np
-from strategies import SelectionStrategy
+from src.strategies.strategies import SelectionStrategy
 
 
 # ---------------------------------------------------------------------------

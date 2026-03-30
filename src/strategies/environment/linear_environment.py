@@ -1,8 +1,7 @@
 # environment.py
 
 import numpy as np
-from strategies import EnvironmentDynamics
-
+from src.strategies.strategies import EnvironmentDynamics
 
 class LinearShiftEnvironment(EnvironmentDynamics):
     """

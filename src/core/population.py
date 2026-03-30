@@ -1,7 +1,7 @@
 # population.py
 
 import numpy as np
-from individual import Individual
+from src.core.individual import Individual
 
 class Population:
     """
@@ -34,6 +34,9 @@ class Population:
 
     def set_individuals(self, new_individuals):
         self.individuals = new_individuals
+
+    def get_phenotypes(self) -> np.ndarray:
+        return np.array([ind.get_phenotype() for ind in self.individuals])
 
     def __len__(self) -> int:
         return len(self.individuals)

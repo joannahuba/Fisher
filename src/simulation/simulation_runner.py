@@ -1,28 +1,62 @@
+from src.core.population import Population
+from src.strategies.selection.selection_strategies import compute_fitnesses
+from src.simulation.stats import AdvancedSimulationStats  # <-- nowa klasa
+
 class SimulationRunner:
+    def __init__(self, population: Population, environment, 
+                 selection, reproduction, mutation, sigma=1.0,
+                 save_dir=None):   # 👈 ZMIANA
 
-    def __init__(self, population, strategies, environment):
         self.population = population
-        self.strategies = strategies
         self.environment = environment
+        self.selection = selection
+        self.reproduction = reproduction
+        self.mutation = mutation
+        self.sigma = sigma
 
-    def run(self, generations):
+        self.stats = AdvancedSimulationStats(
+            save_dir=save_dir   # None = brak ciężkiego IO
+        )
 
-        for t in range(generations):
+    def run(self, generations: int, filename="simulation_stats.csv"):
+        for generation in range(generations):
+            alpha = self.environment.get_optimal_phenotype()
 
-            self.population = self.strategies.mutation.mutate(self.population)
+            # 1. Mutacja
+            self.mutation.mutate(self.population)
 
-            fitness = self.strategies.selection.evaluate(
-                self.population, self.environment
+            # 2. Selekcja
+            survivors = self.selection.select(
+                self.population.get_individuals(),
+                alpha
             )
 
-            survivors = self.strategies.selection.select(
-                self.population, fitness
+            if not survivors:
+                self.stats.mark_extinct(generation)
+                print(f"[INFO] Populacja wymarła w pokoleniu {generation}")
+                break
+
+            # 3. Reprodukcja
+            new_individuals = self.reproduction.reproduce(
+                survivors,
+                len(self.population)
+            )
+            self.population.set_individuals(new_individuals)
+
+            # 4. Statystyki
+            self.stats.record(
+                generation,
+                self.population,
+                alpha,
+                self.sigma,
+                reproduction_strategy=self.reproduction
             )
 
-            self.population = self.strategies.reproduction.reproduce(
-                survivors
-            )
-
+            # 5. Środowisko
             self.environment.update()
 
-            self.stats.record(self.population, self.environment)
+        # CSV opcjonalnie (lekki i przydatny)
+        if self.stats.save_dir is not None:
+            self.stats.save_csv(filename=filename)
+
+        return self.stats
